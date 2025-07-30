@@ -1,100 +1,348 @@
-// This is conceptual server-side code, not part of the HTML file
-const express = require('express');
-const bodyParser = require('body-parser');
-const { Pool } = require('pg'); // PostgreSQL client
-const bcrypt = require('bcrypt'); // For password hashing
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESI ICU Data Entry</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            margin: 20px auto;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #0056b3;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="date"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        .form-group button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .form-group button:hover {
+            background-color: #0056b3;
+        }
+        .error {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        #login-form {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #login-form h2 {
+            margin-bottom: 20px;
+        }
+        #login-form input[type="submit"] {
+            width: 100%;
+            background-color: #28a745;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #login-form input[type="submit"]:hover {
+            background-color: #218838;
+        }
+        .login-error {
+            color: red;
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
 
-const app = express();
-const port = 3000;
+    <div id="login-form" class="container">
+        <h2>Login for ESI ICU Data Entry</h2>
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" required>
+        </div>
+        <div class="form-group">
+            <button onclick="handleLogin()">Login</button>
+        </div>
+        <div id="login-message" class="login-error hidden"></div>
+    </div>
 
-// Database connection pool (replace with your actual credentials)
-const pool = new Pool({
-    user: 'your_db_user',
-    host: 'localhost',
-    database: 'your_db_name',
-    password: 'your_db_password',
-    port: 5432,
-});
+    <div id="data-entry-section" class="container hidden">
+        <h1>ESI ICU Data Entry</h1>
 
-app.use(bodyParser.json());
-app.use(express.static('public')); // Serve your index.html from a 'public' folder
+        <form id="icu-data-form">
+            <div class="form-group">
+                <label for="bedNumber">बेड संख्या (Bed Number): <span style="color: red;">*</span></label>
+                <input type="text" id="bedNumber" required>
+                <div class="error hidden" id="bedNumber-error"></div>
+            </div>
 
-// Simple hardcoded user for demonstration (still bad practice for real apps)
-const users = {
-    "user123": "$2b$10$abcdefghijklmnopqrstuvwxyza.hash" // Hashed password for "password123"
-};
+            <div class="form-group">
+                <label for="patientName">नाम (Name): <span style="color: red;">*</span></label>
+                <input type="text" id="patientName" required>
+                <div class="error hidden" id="patientName-error"></div>
+            </div>
 
-// Middleware for authentication (simplified)
-function authenticateUser(req, res, next) {
-    const { username, password } = req.body; // Assuming login data in body for simplicity
-    if (users[username] && bcrypt.compareSync(password, users[username])) {
-        next(); // User authenticated
-    } else {
-        res.status(401).send('Unauthorized');
-    }
-}
+            <div class="form-group">
+                <label for="admissionDate">प्रवेश तिथि (Admission Date): <span style="color: red;">*</span></label>
+                <input type="date" id="admissionDate" required>
+                <div class="error hidden" id="admissionDate-error"></div>
+            </div>
 
-// Endpoint to handle data submission
-app.post('/api/icu-data', authenticateUser, async (req, res) => {
-    const { bedNumber, patientName, admissionDate, status, lifeSupport, comments, age, gender } = req.body;
+            <div class="form-group">
+                <label for="status">स्थिति (Status): <span style="color: red;">*</span></label>
+                <select id="status" required>
+                    <option value="">Select Status</option>
+                    <option value="Active">Active</option>
+                    <option value="Discharged">Discharged</option>
+                    <option value="Deceased">Deceased</option>
+                </select>
+                <div class="error hidden" id="status-error"></div>
+            </div>
 
-    // Server-side validation (more robust than client-side)
-    if (!bedNumber || !patientName || !admissionDate || !status || !lifeSupport || !age || !gender) {
-        return res.status(400).send('All required fields must be provided.');
-    }
+            <div class="form-group">
+                <label for="lifeSupport">जीवन सहायक (Life Support): <span style="color: red;">*</span></label>
+                <select id="lifeSupport" required>
+                    <option value="">Select Option</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                </select>
+                <div class="error hidden" id="lifeSupport-error"></div>
+            </div>
 
-    try {
-        const lastUpdate = new Date().toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
-        const admission = new Date(admissionDate);
-        const today = new Date();
-        admission.setHours(0, 0, 0, 0);
-        today.setHours(0, 0, 0, 0);
-        const icuDuration = Math.ceil(Math.abs(today - admission) / (1000 * 60 * 60 * 24)) + 1;
+            <div class="form-group">
+                <label for="comments">टिप्पणी (Comments):</label>
+                <textarea id="comments"></textarea>
+            </div>
 
-        const query = `
-            INSERT INTO "ESI_ICU_Data" (
-                "बेड संख्या", नाम, "प्रवेश तिथि", स्थिति, "जीवन सहायक", टिप्पणी, आयु, जेंडर, "अंतिम अपडेट", "आईसीयू में भर्ती अवधि"
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING *;
-        `;
-        const values = [
-            bedNumber, patientName, admissionDate, status, lifeSupport, comments, age, gender,
-            lastUpdate, icuDuration
-        ];
+            <div class="form-group">
+                <label for="age">आयु (Age): <span style="color: red;">*</span></label>
+                <input type="number" id="age" min="0" required>
+                <div class="error hidden" id="age-error"></div>
+            </div>
 
-        const result = await pool.query(query, values);
-        res.status(201).json(result.rows[0]); // Send back the inserted row
-    } catch (error) {
-        console.error('Error inserting data:', error);
-        res.status(500).send('Error saving data to database.');
-    }
-});
+            <div class="form-group">
+                <label for="gender">जेंडर (Gender): <span style="color: red;">*</span></label>
+                <select id="gender" required>
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+                <div class="error hidden" id="gender-error"></div>
+            </div>
 
-// Create the table if it doesn't exist (run once or use migrations)
-async function createTable() {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS "ESI_ICU_Data" (
-                id SERIAL PRIMARY KEY,
-                "बेड संख्या" VARCHAR(50) NOT NULL,
-                नाम VARCHAR(255) NOT NULL,
-                "प्रवेश तिथि" DATE NOT NULL,
-                स्थिति VARCHAR(50) NOT NULL,
-                "जीवन सहायक" VARCHAR(10) NOT NULL,
-                टिप्पणी TEXT,
-                आयु INTEGER NOT NULL,
-                जेंडर VARCHAR(50) NOT NULL,
-                "अंतिम अपडेट" TIMESTAMP NOT NULL,
-                "आईसीयू में भर्ती अवधि" INTEGER NOT NULL
-            );
-        `);
-        console.log('Table "ESI_ICU_Data" ensured.');
-    } catch (err) {
-        console.error('Error creating table:', err);
-    }
-}
+            <div class="form-group">
+                <button type="submit">Submit Data</button>
+            </div>
+        </form>
 
-app.listen(port, () => {
-    console.log(`Server listening at http://localhost:${port}`);
-    createTable(); // Ensure table exists on server start
-});
+        <h2>Entered Data (Client-Side Display)</h2>
+        <table id="data-table">
+            <thead>
+                <tr>
+                    <th>बेड संख्या</th>
+                    <th>नाम</th>
+                    <th>प्रवेश तिथि</th>
+                    <th>स्थिति</th>
+                    <th>जीवन सहायक</th>
+                    <th>टिप्पणी</th>
+                    <th>आयु</th>
+                    <th>जेंडर</th>
+                    <th>अंतिम अपडेट</th>
+                    <th>आईसीयू में भर्ती अवधि</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+        // HARDCODED CREDENTIALS - FOR DEMONSTRATION ONLY. DO NOT USE IN PRODUCTION!
+        const VALID_USERNAME = "user123";
+        const VALID_PASSWORD = "password123";
+
+        function handleLogin() {
+            const usernameInput = document.getElementById('username').value;
+            const passwordInput = document.getElementById('password').value;
+            const loginMessage = document.getElementById('login-message');
+
+            if (usernameInput === VALID_USERNAME && passwordInput === VALID_PASSWORD) {
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('data-entry-section').classList.remove('hidden');
+                loginMessage.classList.add('hidden');
+            } else {
+                loginMessage.textContent = 'Invalid username or password.';
+                loginMessage.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('icu-data-form').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            if (!validateForm()) {
+                return; // Stop if validation fails
+            }
+
+            const bedNumber = document.getElementById('bedNumber').value;
+            const patientName = document.getElementById('patientName').value;
+            const admissionDateStr = document.getElementById('admissionDate').value; // YYYY-MM-DD
+            const status = document.getElementById('status').value;
+            const lifeSupport = document.getElementById('lifeSupport').value;
+            const comments = document.getElementById('comments').value;
+            const age = document.getElementById('age').value;
+            const gender = document.getElementById('gender').value;
+
+            // Calculate "अंतिम अपडेट" (Last Update) - System generated
+            const now = new Date();
+            const lastUpdate = formatDate(now) + ' ' + formatTime(now);
+
+            // Calculate "आईसीयू में भर्ती अवधि" (ICU Admission Duration)
+            const admissionDate = new Date(admissionDateStr);
+            const today = new Date();
+            // Reset time for accurate day calculation
+            admissionDate.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+
+            const diffTime = Math.abs(today - admissionDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 for inclusive day count
+
+            const tableBody = document.getElementById('data-table').getElementsByTagName('tbody')[0];
+            const newRow = tableBody.insertRow();
+
+            newRow.insertCell().textContent = bedNumber;
+            newRow.insertCell().textContent = patientName;
+            newRow.insertCell().textContent = admissionDateStr; // Display as YYYY-MM-DD
+            newRow.insertCell().textContent = status;
+            newRow.insertCell().textContent = lifeSupport;
+            newRow.insertCell().textContent = comments;
+            newRow.insertCell().textContent = age;
+            newRow.insertCell().textContent = gender;
+            newRow.insertCell().textContent = lastUpdate;
+            newRow.insertCell().textContent = diffDays + " days";
+
+            // Clear the form after submission
+            this.reset();
+        });
+
+        function validateForm() {
+            let isValid = true;
+            const requiredFields = ['bedNumber', 'patientName', 'admissionDate', 'status', 'lifeSupport', 'age', 'gender'];
+
+            requiredFields.forEach(fieldId => {
+                const inputElement = document.getElementById(fieldId);
+                const errorElement = document.getElementById(fieldId + '-error');
+                if (!inputElement.value.trim()) {
+                    errorElement.textContent = 'This field is required.';
+                    errorElement.classList.remove('hidden');
+                    isValid = false;
+                } else {
+                    errorElement.classList.add('hidden');
+                }
+            });
+
+            // Specific validation for Age
+            const ageInput = document.getElementById('age');
+            const ageError = document.getElementById('age-error');
+            if (ageInput.value && parseInt(ageInput.value) < 0) {
+                ageError.textContent = 'Age cannot be negative.';
+                ageError.classList.remove('hidden');
+                isValid = false;
+            } else if (ageInput.value && !Number.isInteger(parseFloat(ageInput.value))) {
+                 ageError.textContent = 'Age must be a whole number.';
+                 ageError.classList.remove('hidden');
+                 isValid = false;
+            }
+
+
+            return isValid;
+        }
+
+        // Helper function to format date as 'DD/MM/YYYY'
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        // Helper function to format time as 'HH:MM:SS'
+        function formatTime(date) {
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+    </script>
+
+</body>
+</html>
