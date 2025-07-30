@@ -161,9 +161,11 @@
                 <label for="status">स्थिति (Status): <span style="color: red;">*</span></label>
                 <select id="status" required>
                     <option value="">Select Status</option>
-                    <option value="Active">Active</option>
-                    <option value="Discharged">Discharged</option>
-                    <option value="Deceased">Deceased</option>
+                    <option value="गंभीर">गंभीर (Critical)</option>
+                    <option value="नाजुक">नाजुक (Serious)</option>
+                    <option value="स्थिर">स्थिर (Stable)</option>
+                    <option value="निधन">निधन (Deceased)</option>
+                    <option value="डिस्चार्ज">डिस्चार्ज (Discharged)</option>
                 </select>
                 <div class="error hidden" id="status-error"></div>
             </div>
@@ -172,8 +174,10 @@
                 <label for="lifeSupport">जीवन सहायक (Life Support): <span style="color: red;">*</span></label>
                 <select id="lifeSupport" required>
                     <option value="">Select Option</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
+                    <option value="वेंटिलेटर">वेंटिलेटर (Ventilator)</option>
+                    <option value="डायलिसिस">डायलिसिस (Dialysis)</option>
+                    <option value="अन्य">अन्य (Other)</option>
+                    <option value="कोई नहीं">कोई नहीं (None)</option>
                 </select>
                 <div class="error hidden" id="lifeSupport-error"></div>
             </div>
@@ -222,7 +226,7 @@
                 </tr>
             </thead>
             <tbody>
-                </tbody>
+            </tbody>
         </table>
     </div>
 
@@ -318,9 +322,9 @@
                 ageError.classList.remove('hidden');
                 isValid = false;
             } else if (ageInput.value && !Number.isInteger(parseFloat(ageInput.value))) {
-                 ageError.textContent = 'Age must be a whole number.';
-                 ageError.classList.remove('hidden');
-                 isValid = false;
+                ageError.textContent = 'Age must be a whole number.';
+                ageError.classList.remove('hidden');
+                isValid = false;
             }
 
 
